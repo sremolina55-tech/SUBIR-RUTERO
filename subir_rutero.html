@@ -127,16 +127,16 @@ tbody tr:last-child td{border-bottom:none;}
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>Documento</th><th>Fec.Entr.</th><th>Tercero</th><th>transportador</th><th># de Factura</th><th>Cantidad</th><th>Condicion</th></tr>
+          <tr><th>Documento</th><th>Fec.Entr.</th><th>Tercero</th><th>Sucursal</th><th>transportador</th><th># de Factura</th><th>Cantidad</th><th>Condicion</th></tr>
         </thead>
         <tbody>
-          <tr><td>FV-001</td><td>27/04/2026</td><td>SODEXO S A S</td><td>LUIS</td><td>2303-0202254</td><td>1593.8</td><td>15 DIAS</td></tr>
-          <tr><td>FV-002</td><td>27/04/2026</td><td>PURA SABROSURA SAS</td><td>FELIPE</td><td>2303-0202255</td><td>46</td><td>8 DIAS</td></tr>
-          <tr><td>FV-003</td><td>27/04/2026</td><td>LAO KAO SA</td><td>LUIS</td><td>2303-0202256</td><td>60.3</td><td>30 DIAS</td></tr>
+          <tr><td>FV-001</td><td>27/04/2026</td><td>SODEXO S A S</td><td>SODEXO SEDE NORTE</td><td>LUIS</td><td>2303-0202254</td><td>1593.8</td><td>15 DIAS</td></tr>
+          <tr><td>FV-002</td><td>27/04/2026</td><td>PURA SABROSURA SAS</td><td>PURA SABROSURA SAS</td><td>FELIPE</td><td>2303-0202255</td><td>46</td><td>8 DIAS</td></tr>
+          <tr><td>FV-003</td><td>27/04/2026</td><td>LAO KAO SA</td><td>LAO KAO SEDE PRINCIPAL</td><td>LUIS</td><td>2303-0202256</td><td>60.3</td><td>30 DIAS</td></tr>
         </tbody>
       </table>
     </div>
-    <p class="note">Las columnas obligatorias son: <strong># de Factura, Tercero, transportador y Cantidad</strong>. Los nombres deben ser exactamente iguales incluyendo mayusculas y puntos.</p>
+    <p class="note">Las columnas obligatorias son: <strong># de Factura, Tercero, transportador y Cantidad</strong>. La columna <strong>Sucursal</strong> es opcional pero recomendada. Los nombres deben ser exactamente iguales incluyendo mayusculas y puntos.</p>
   </div>
 
   <div class="card">
@@ -157,7 +157,7 @@ tbody tr:last-child td{border-bottom:none;}
       <div class="warn-box" id="warn-box"></div>
       <div class="prev-wrap">
         <table class="prev-table">
-          <thead><tr><th>#Factura</th><th>Fecha</th><th>Cliente</th><th>Repartidor</th><th>Cantidad</th></tr></thead>
+          <thead><tr><th>#Factura</th><th>Fecha</th><th>Cliente</th><th>Sucursal</th><th>Repartidor</th><th>Cantidad</th></tr></thead>
           <tbody id="preview-tbody"></tbody>
         </table>
       </div>
@@ -201,12 +201,14 @@ window.addEventListener('load', function(){
 
 function doLogin() {
   var user = document.getElementById('login-user').value.trim().toUpperCase();
-  var pass = document.getElementById('login-pass').value.trim();
+  var pass = document.getElementById('login-pass').value;
   if(!user || !pass) return;
   showLoading('Verificando...');
-  sbGet('usuarios', 'usuario=eq.' + encodeURIComponent(user) + '&password=eq.' + encodeURIComponent(pass) + '&activo=eq.true&select=id,usuario,nombre,punto,rol').then(function(data){
+  fetch(SUPA_URL + '/rest/v1/usuarios?usuario=eq.' + encodeURIComponent(user) + '&select=id,usuario,nombre,punto,rol,password,activo', {
+    headers: {apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY}
+  }).then(function(r){ return r.json(); }).then(function(data){
     hideLoading();
-    if(!data || !data.length){
+    if(!data || !data.length || data[0].password !== pass || data[0].activo === false){
       document.getElementById('login-error').classList.add('show');
       document.getElementById('login-pass').value = '';
       return;
@@ -215,7 +217,7 @@ function doLogin() {
     sesion = {id: u.id, usuario: u.usuario, nombre: u.nombre, punto: u.punto, rol: u.rol};
     sessionStorage.setItem('lom_sesion', JSON.stringify(sesion));
     mostrarApp();
-  });
+  }).catch(function(e){ hideLoading(); alert('Error de conexion: ' + e.message); });
 }
 
 function mostrarApp() {
@@ -271,26 +273,59 @@ function parsear(rows) {
     }
     var factura = String(get('defactura','factura','consecutivo') || '').trim();
     var cliente = String(get('tercero','cliente','nombre') || '').trim();
-    var repartidor = String(get('transportador','repartidor','domiciliario') || '').trim();
+    var repartidor = String(get('transportador','transnportador','transnsportador','repartidor','domiciliario') || '').trim();
+    var sucursal = String(get('sucursal','suc','branch') || '').trim();
     var cantRaw = get('cantidad','kg','kilos','peso');
     var fechaRaw = get('fecentr','fecha','date','fec');
     if(!factura || !cliente || !repartidor) return;
+
+    // Validar consecutivo — formato estricto XXXX-XXXXXXX
+    var facturaOriginal = factura;
+    var facturaError = null;
+    var guionPos = factura.indexOf('-');
+    if(guionPos < 0) {
+      facturaError = 'Fila '+(i+2)+': el consecutivo "'+facturaOriginal+'" no tiene el formato correcto. Debe ser XXXX-XXXXXXX (ejemplo: 2303-0202254)';
+    } else {
+      var partes = factura.split('-');
+      var prefPart = partes[0];
+      var numPart = partes[1] || '';
+      if(prefPart.length !== 4) {
+        facturaError = 'Fila '+(i+2)+': el prefijo "'+prefPart+'" debe tener exactamente 4 digitos (ejemplo: 2303)';
+      } else if(numPart.length !== 7) {
+        facturaError = 'Fila '+(i+2)+': el numero "'+numPart+'" debe tener exactamente 7 digitos. Tiene '+numPart.length+'. Correcto: '+prefPart+'-'+numPart.padStart(7,'0');
+      }
+    }
+    if(facturaError) { warnings.push(facturaError); return; }
     var kg = parseFloat(String(cantRaw).replace(',','.'));
     if(isNaN(kg)) { warnings.push('Fila ' + (i+2) + ': cantidad invalida - omitida'); return; }
     var fecha = new Date().toISOString().split('T')[0];
     if(fechaRaw) {
       if(fechaRaw instanceof Date) { fecha = fechaRaw.toISOString().split('T')[0]; }
+      else if(!isNaN(Number(fechaRaw)) && Number(fechaRaw) > 40000) {
+        // Numero serial de Excel — convertir a fecha
+        var d = new Date(Math.round((Number(fechaRaw) - 25569) * 86400 * 1000));
+        fecha = d.toISOString().split('T')[0];
+      }
       else { var p = String(fechaRaw).split('/'); if(p.length === 3) fecha = p[2].padStart(4,'0') + '-' + p[1].padStart(2,'0') + '-' + p[0].padStart(2,'0'); }
     }
-    ruteroData.push({factura: factura, cliente: cliente, repartidor: repartidor, kg: kg, fecha: fecha});
+    ruteroData.push({factura: factura, cliente: cliente, repartidor: repartidor, sucursal: sucursal, kg: kg, fecha: fecha});
   });
+  if(warnings.length) {
+    var wb2 = document.getElementById('warn-box');
+    wb2.innerHTML = '<strong>Se encontraron errores. Corrigelos en el archivo y vuelve a subirlo:</strong><br><br>' + warnings.join('<br>');
+    wb2.classList.add('show');
+    document.getElementById('preview-section').classList.add('show');
+    document.getElementById('btn-importar').style.display = 'none';
+    document.getElementById('preview-section').scrollIntoView({behavior:'smooth'});
+    return;
+  }
   if(!ruteroData.length) { alert('No se encontraron filas validas. Verifica que las columnas tengan los nombres correctos.'); return; }
   document.getElementById('preview-count').textContent = ruteroData.length;
   var html = '';
   var max = Math.min(ruteroData.length, 30);
   for(var i = 0; i < max; i++) {
     var r = ruteroData[i];
-    html += '<tr><td style="color:var(--rosa);font-weight:600">' + r.factura + '</td><td style="color:var(--text3)">' + r.fecha + '</td><td>' + r.cliente + '</td><td style="color:var(--text2)">' + r.repartidor + '</td><td style="text-align:right">' + r.kg + '</td></tr>';
+    html += '<tr><td style="color:var(--rosa);font-weight:600">' + r.factura + '</td><td style="color:var(--text3)">' + r.fecha + '</td><td>' + r.cliente + '</td><td style="color:var(--text2);font-size:12px">' + (r.sucursal||'-') + '</td><td style="color:var(--text2)">' + r.repartidor + '</td><td style="text-align:right">' + r.kg + '</td></tr>';
   }
   if(ruteroData.length > 30) html += '<tr><td colspan="5" style="color:var(--text3);font-size:12px;padding:8px 12px">... y ' + (ruteroData.length - 30) + ' mas</td></tr>';
   document.getElementById('preview-tbody').innerHTML = html;
@@ -350,13 +385,13 @@ function importarFilas(idx, ins, om, cMap, rMap, fSet) {
     sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
   return Promise.all([pCliente, pRep]).then(function(ids){
     if(!ids[0] || !ids[1]) return importarFilas(idx+1, ins, om+1, cMap, rMap, fSet);
-    return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente'}).then(function(res){
+    return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null}).then(function(res){
       return importarFilas(idx+1, res.error ? ins : ins+1, res.error ? om+1 : om, cMap, rMap, fSet);
     });
   });
 }
 
-function cancelar() { ruteroData = []; document.getElementById('preview-section').classList.remove('show'); document.getElementById('rutero-file').value = ''; }
+function cancelar() { ruteroData = []; document.getElementById('preview-section').classList.remove('show'); document.getElementById('rutero-file').value = ''; document.getElementById('btn-importar').style.display = ''; }
 function resetUpload() { cancelar(); document.getElementById('result-box').classList.remove('show'); document.getElementById('btn-importar').disabled = false; document.getElementById('btn-importar').textContent = 'Confirmar e importar'; window.scrollTo(0,0); }
 function showLoading(txt) { document.getElementById('loading-txt').textContent = txt || 'Procesando...'; document.getElementById('loading').classList.add('show'); }
 function hideLoading() { document.getElementById('loading').classList.remove('show'); }
