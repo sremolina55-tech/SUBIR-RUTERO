@@ -411,7 +411,7 @@ function parsear(rows) {
         else fecha = _p[0]+'-'+_p[1].padStart(2,'0')+'-'+_p[2].padStart(2,'0');
       }
     }
-    if(!fecha){ warnings.push('Fila '+(i+2)+': no se pudo leer la fecha de entrega'); return; }
+    if(!fecha){ var _n=new Date();fecha=new Date(_n.getTime()-5*60*60*1000).toISOString().split('T')[0]; }
     ruteroData.push({factura: factura, cliente: cliente, repartidor: repartidor, sucursal: sucursal, direccion: direccion, kg: kg, fecha: fecha});
   });
   if(warnings.length) {
