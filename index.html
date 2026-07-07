@@ -182,11 +182,6 @@ tbody tr:last-child td{border-bottom:none;}
 
     <div class="card">
       <div class="card-title">Subir archivo del rutero</div>
-      <div style="margin-bottom:18px">
-        <label style="font-size:13px;font-weight:500;color:var(--text2);display:block;margin-bottom:6px">Fecha de entrega</label>
-        <input type="date" id="rutero-fecha" style="background:var(--cream);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:15px;color:var(--text);font-family:inherit;outline:none;cursor:pointer" onfocus="this.style.borderColor='var(--rosa)'" onblur="this.style.borderColor='var(--border)'">
-        <div style="font-size:12px;color:var(--text3);margin-top:5px">Esta fecha se asigna a todas las facturas del archivo</div>
-      </div>
       <div class="drop-zone" id="drop-zone">
         <input type="file" id="rutero-file" accept=".xlsx,.xls,.csv" onchange="procesarArchivo(this)">
         <div class="drop-icon">&#128196;</div>
@@ -313,8 +308,6 @@ function mostrarApp() {
   document.getElementById('main-header').style.display = 'flex';
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('user-badge').textContent = sesion.usuario + ' - ' + sesion.punto;
-  var _n=new Date(); var _c=new Date(_n.getTime()-5*60*60*1000);
-  document.getElementById('rutero-fecha').value = _c.toISOString().split('T')[0];
   if (sesion.usuario === 'LOM1') {
     document.getElementById('mtab-aplazados').style.display = '';
     cargarPedidosAplazados();
@@ -400,8 +393,25 @@ function parsear(rows) {
     if(facturaError) { warnings.push(facturaError); return; }
     var kg = parseFloat(String(cantRaw).replace(',','.'));
     if(isNaN(kg)) { warnings.push('Fila ' + (i+2) + ': cantidad invalida - omitida'); return; }
-    var fecha = document.getElementById('rutero-fecha').value;
-    if(!fecha) { alert('Debes seleccionar la fecha de entrega antes de subir el archivo.'); return; }
+    var fechaRaw = get('fecentr','fecenr','fechaentrega','fechaentr','fecha','date','fec','fecent');
+    var fecha = '';
+    if(fechaRaw instanceof Date){
+      // Date object de SheetJS — usar UTC para no desfasar por zona horaria
+      fecha = fechaRaw.toISOString().split('T')[0];
+    } else if(!isNaN(Number(fechaRaw)) && Number(fechaRaw) > 40000){
+      // Serial numérico de Excel
+      var _d = new Date(Math.round((Number(fechaRaw) - 25569) * 86400 * 1000));
+      fecha = _d.toISOString().split('T')[0];
+    } else if(fechaRaw){
+      var _s = String(fechaRaw).trim();
+      // DD/MM/YYYY o DD-MM-YYYY
+      var _p = _s.split(/[\/\-]/);
+      if(_p.length === 3){
+        if(_p[0].length <= 2) fecha = _p[2].padStart(4,'0')+'-'+_p[1].padStart(2,'0')+'-'+_p[0].padStart(2,'0');
+        else fecha = _p[0]+'-'+_p[1].padStart(2,'0')+'-'+_p[2].padStart(2,'0');
+      }
+    }
+    if(!fecha){ warnings.push('Fila '+(i+2)+': no se pudo leer la fecha de entrega'); return; }
     ruteroData.push({factura: factura, cliente: cliente, repartidor: repartidor, sucursal: sucursal, direccion: direccion, kg: kg, fecha: fecha});
   });
   if(warnings.length) {
