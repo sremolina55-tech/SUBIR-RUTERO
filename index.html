@@ -1,0 +1,716 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lomarosa - Subir Rutero</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --rosa:#e8456e;--rosa-dark:#c83058;--rosa-dim:rgba(232,69,110,0.10);
+  --cream:#fff5f8;--cream2:#fce8ee;
+  --border:#f0c0cc;--border2:#e0a0b0;
+  --text:#2a1018;--text2:#8a4858;--text3:#c090a0;
+  --green:#4a9e6a;--green-dim:rgba(74,158,106,0.12);
+  --amber:#c87820;--amber-dim:rgba(200,120,32,0.12);
+  --red:#d44050;--red-dim:rgba(212,64,80,0.10);
+  --radius:14px;--radius-sm:8px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;font-size:15px;}
+.login-overlay{display:flex;position:fixed;inset:0;background:var(--cream);z-index:200;align-items:center;justify-content:center;padding:20px;}
+.login-box{background:#fff;border:1px solid var(--border);border-radius:20px;padding:36px 32px;width:100%;max-width:380px;box-shadow:0 8px 40px rgba(232,69,110,0.12);}
+.login-logo{font-family:'Playfair Display',serif;font-size:28px;font-weight:600;color:var(--rosa);text-align:center;letter-spacing:2px;margin-bottom:4px;}
+.login-sub{text-align:center;font-size:13px;color:var(--text3);margin-bottom:28px;}
+.login-label{font-size:13px;color:var(--text2);font-weight:500;display:block;margin-bottom:6px;}
+.login-input{width:100%;background:var(--cream);border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-size:15px;font-family:inherit;outline:none;margin-bottom:14px;transition:border-color 0.2s;}
+.login-input:focus{border-color:var(--rosa);background:#fff;}
+.login-btn{width:100%;background:var(--rosa);color:#fff;border:none;border-radius:10px;padding:14px;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;transition:background 0.2s;}
+.login-btn:hover{background:var(--rosa-dark);}
+.login-error{background:var(--red-dim);border:1px solid rgba(212,64,80,0.3);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:14px;display:none;}
+.login-error.show{display:block;}
+.header{background:var(--rosa);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;}
+.header-left{display:flex;align-items:center;gap:14px;}
+.header-logo{font-family:'Playfair Display',serif;font-size:20px;font-weight:600;color:#fff;letter-spacing:2px;}
+.header-sep{color:rgba(255,255,255,0.4);}
+.header-page{font-size:13px;color:rgba(255,255,255,0.85);font-weight:500;}
+.user-badge{background:rgba(255,255,255,0.2);border-radius:20px;padding:5px 12px;font-size:13px;color:#fff;font-weight:500;}
+.btn-logout{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer;font-family:inherit;}
+.content{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
+.card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:22px;margin-bottom:20px;}
+.card-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:500;margin-bottom:6px;}
+.card-sub{font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6;}
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead tr{background:var(--rosa);}
+thead th{padding:10px 13px;text-align:left;color:#fff;font-weight:600;font-size:12px;}
+tbody tr:nth-child(odd){background:var(--cream);}
+tbody tr:nth-child(even){background:#fff;}
+td{padding:9px 13px;border-bottom:1px solid var(--border);}
+tbody tr:last-child td{border-bottom:none;}
+.note{font-size:12px;color:var(--text3);margin-top:10px;line-height:1.6;}
+.note strong{color:var(--text2);}
+.drop-zone{background:var(--cream);border:2px dashed var(--border2);border-radius:12px;padding:44px 24px;text-align:center;cursor:pointer;position:relative;transition:all 0.2s;}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--rosa);background:var(--rosa-dim);}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.drop-icon{font-size:44px;margin-bottom:12px;}
+.drop-title{font-size:16px;font-weight:600;color:var(--rosa);margin-bottom:5px;}
+.drop-sub{font-size:13px;color:var(--text3);}
+.formats{display:inline-flex;gap:6px;margin-top:10px;}
+.fmt{background:var(--cream2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text2);font-weight:600;}
+.preview-section{display:none;}
+.preview-section.show{display:block;}
+.divider{height:1px;background:var(--border);margin:20px 0;}
+.preview-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.preview-count{font-size:14px;font-weight:600;}
+.preview-count span{color:var(--rosa);}
+.prev-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;margin-bottom:14px;}
+.prev-table{width:100%;border-collapse:collapse;font-size:13px;}
+.prev-table th{background:var(--cream2);padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text3);font-weight:600;border-bottom:1px solid var(--border);}
+.prev-table td{padding:8px 12px;border-bottom:1px solid var(--border);}
+.prev-table tr:last-child td{border-bottom:none;}
+.warn-box{background:var(--amber-dim);border:1.5px solid rgba(200,120,32,0.3);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--amber);line-height:1.7;display:none;}
+.warn-box.show{display:block;}
+.actions{display:flex;gap:10px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:11px 20px;border-radius:var(--radius-sm);font-size:14px;font-weight:600;cursor:pointer;border:1.5px solid transparent;transition:all 0.15s;font-family:inherit;}
+.btn-primary{background:var(--rosa);color:#fff;}
+.btn-primary:hover{background:var(--rosa-dark);}
+.btn-ghost{background:transparent;color:var(--text2);border-color:var(--border);}
+.btn-ghost:hover{background:var(--cream2);}
+.result-box{display:none;border-radius:12px;padding:22px;text-align:center;margin-top:16px;}
+.result-box.show{display:block;}
+.result-box.ok{background:var(--green-dim);border:1.5px solid rgba(74,158,106,0.3);}
+.result-box.err{background:var(--red-dim);border:1.5px solid rgba(212,64,80,0.3);}
+.result-icon{font-size:38px;margin-bottom:8px;}
+.result-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+.result-sub{font-size:13px;color:var(--text2);line-height:1.6;}
+.loading{display:none;position:fixed;inset:0;background:rgba(255,245,248,0.92);z-index:300;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+.loading.show{display:flex;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--rosa);border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-logo{font-family:'Playfair Display',serif;font-size:18px;color:var(--rosa);letter-spacing:2px;}
+.loading-txt{font-size:13px;color:var(--text3);}
+
+/* ─── MAIN TABS ─────────────────────────────────────────────── */
+.mtab-bar{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:24px;}
+.mtab-btn{padding:10px 20px;font-size:14px;font-weight:600;background:none;border:none;cursor:pointer;color:var(--text3);font-family:inherit;border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s;display:flex;align-items:center;gap:6px;}
+.mtab-btn.act{color:var(--rosa);border-bottom-color:var(--rosa);}
+.mtab-content{display:none;}.mtab-content.act{display:block;}
+
+/* ─── PEDIDOS APLAZADOS ──────────────────────────────────────── */
+.ped-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;}
+.ped-tab{padding:9px 16px;font-size:13px;font-weight:600;background:none;border:none;cursor:pointer;color:var(--text3);font-family:inherit;border-bottom:3px solid transparent;margin-bottom:-2px;transition:.15s;}
+.ped-tab.act{color:var(--rosa);border-bottom-color:var(--rosa);}
+.ped-tab-content{display:none;}.ped-tab-content.act{display:block;}
+.ped-card{background:var(--cream);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
+.ped-card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.ped-pedido{font-size:14px;font-weight:700;color:var(--text);font-family:monospace;}
+.ped-items{display:flex;flex-direction:column;gap:4px;margin-bottom:14px;}
+.ped-item{display:flex;align-items:center;gap:10px;padding:7px 10px;background:#fff;border:1px solid var(--border);border-radius:7px;font-size:12px;flex-wrap:wrap;}
+.ped-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid var(--border);padding-top:12px;}
+.ped-form .full{grid-column:1/-1;}
+.ped-form label{font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:3px;}
+.ped-select,.ped-input,.ped-date{width:100%;padding:8px 10px;font-size:13px;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--text);font-family:inherit;outline:none;}
+.ped-select:focus,.ped-input:focus,.ped-date:focus{border-color:var(--rosa);}
+.ped-badge{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:700;display:inline-block;white-space:nowrap;}
+.pb-red{background:var(--red-dim);color:var(--red);}
+.pb-amber{background:var(--amber-dim);color:var(--amber);}
+.pb-green{background:var(--green-dim);color:var(--green);}
+.ped-empty{text-align:center;color:var(--text3);padding:36px 20px;font-size:13px;}
+.ped-revision-box{background:var(--amber-dim);border:1px solid rgba(200,120,32,.3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:12px;line-height:1.7;}
+.ped-espera-box{background:var(--green-dim);border:1px solid rgba(74,158,106,.3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--green);margin-top:8px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="loading" id="loading"><div class="spinner"></div><div class="loading-logo">LOMAROSA</div><div class="loading-txt" id="loading-txt">Procesando...</div></div>
+
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div class="login-logo">Lomarosa</div>
+    <div class="login-sub">Carga de rutero</div>
+    <div class="login-error" id="login-error">Usuario o contrasena incorrectos</div>
+    <label class="login-label">Usuario</label>
+    <input class="login-input" id="login-user" type="text" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    <label class="login-label">Contrasena</label>
+    <input class="login-input" id="login-pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+  </div>
+</div>
+
+<header class="header" id="main-header" style="display:none">
+  <div class="header-left">
+    <div class="header-logo">Lomarosa</div>
+    <div class="header-sep">/</div>
+    <div class="header-page">Carga de rutero</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="user-badge" id="user-badge"></div>
+    <button class="btn-logout" onclick="logout()">Cerrar sesion</button>
+  </div>
+</header>
+
+<div class="content" id="main-content" style="display:none">
+
+  <!-- Barra de tabs principal -->
+  <div class="mtab-bar">
+    <button class="mtab-btn act" onclick="setMainTab('rutero')" id="mtab-rutero">📋 Rutero</button>
+    <button class="mtab-btn" onclick="setMainTab('aplazados')" id="mtab-aplazados" style="display:none">
+      ⚠️ Pedidos aplazados
+      <span id="mtab-aplazados-cnt" style="display:none;background:var(--rosa);color:#fff;border-radius:20px;padding:1px 7px;font-size:11px">0</span>
+    </button>
+  </div>
+
+  <!-- ── TAB: RUTERO ── -->
+  <div class="mtab-content act" id="tab-rutero">
+    <div class="card">
+      <div class="card-title">Como debe verse el archivo</div>
+      <div class="card-sub">Verifica que tu archivo tenga exactamente estas columnas antes de subirlo.</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Documento</th><th>Fec.Entr.</th><th>Tercero</th><th>Sucursal</th><th>transportador</th><th># de Factura</th><th>Cantidad</th><th>Condicion</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>FV-001</td><td>27/04/2026</td><td>SODEXO S A S</td><td>SODEXO SEDE NORTE</td><td>LUIS</td><td>2303-0202254</td><td>1593.8</td><td>15 DIAS</td></tr>
+            <tr><td>FV-002</td><td>27/04/2026</td><td>PURA SABROSURA SAS</td><td>PURA SABROSURA SAS</td><td>FELIPE</td><td>2303-0202255</td><td>46</td><td>8 DIAS</td></tr>
+            <tr><td>FV-003</td><td>27/04/2026</td><td>LAO KAO SA</td><td>LAO KAO SEDE PRINCIPAL</td><td>LUIS</td><td>2303-0202256</td><td>60.3</td><td>30 DIAS</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Las columnas obligatorias son: <strong># de Factura, Tercero, transportador y Cantidad</strong>. La columna <strong>Sucursal</strong> es opcional pero recomendada. Los nombres deben ser exactamente iguales incluyendo mayusculas y puntos.</p>
+      </div>
+
+    <div class="card">
+      <div class="card-title">Subir archivo del rutero</div>
+      <div style="margin-bottom:18px">
+        <label style="font-size:13px;font-weight:500;color:var(--text2);display:block;margin-bottom:6px">Fecha de entrega</label>
+        <input type="date" id="rutero-fecha" style="background:var(--cream);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:15px;color:var(--text);font-family:inherit;outline:none;cursor:pointer" onfocus="this.style.borderColor='var(--rosa)'" onblur="this.style.borderColor='var(--border)'">
+        <div style="font-size:12px;color:var(--text3);margin-top:5px">Esta fecha se asigna a todas las facturas del archivo</div>
+      </div>
+      <div class="drop-zone" id="drop-zone">
+        <input type="file" id="rutero-file" accept=".xlsx,.xls,.csv" onchange="procesarArchivo(this)">
+        <div class="drop-icon">&#128196;</div>
+        <div class="drop-title">Arrastra el archivo aqui</div>
+        <div class="drop-sub">o haz clic para seleccionar desde tu computador</div>
+        <div class="formats"><span class="fmt">.xlsx</span><span class="fmt">.xls</span><span class="fmt">.csv</span></div>
+      </div>
+      <div class="preview-section" id="preview-section">
+        <div class="divider"></div>
+        <div class="preview-header">
+          <div class="preview-count">Vista previa - <span id="preview-count">0</span> facturas encontradas</div>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:13px" onclick="cancelar()">Cancelar</button>
+        </div>
+        <div class="warn-box" id="warn-box"></div>
+        <div class="prev-wrap">
+          <table class="prev-table">
+            <thead><tr><th>#Factura</th><th>Fecha</th><th>Cliente</th><th>Sucursal</th><th>Repartidor</th><th>Cantidad</th></tr></thead>
+            <tbody id="preview-tbody"></tbody>
+          </table>
+        </div>
+        <div class="actions">
+          <button class="btn btn-primary" id="btn-importar" onclick="importar()">Confirmar e importar</button>
+          <button class="btn btn-ghost" onclick="cancelar()">Cancelar</button>
+        </div>
+      </div>
+      <div class="result-box" id="result-box">
+        <div class="result-icon" id="result-icon"></div>
+        <div class="result-title" id="result-title"></div>
+        <div class="result-sub" id="result-sub"></div>
+        <button class="btn btn-ghost" style="margin-top:14px" onclick="resetUpload()">Subir otro archivo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB: PEDIDOS APLAZADOS (solo LOM1) ── -->
+  <div class="mtab-content" id="tab-aplazados">
+    <div class="card">
+      <div class="card-title">Pedidos facturados parcialmente</div>
+      <div class="card-sub">Pedidos donde se facturó menos de lo solicitado (diferencia mayor a 10 kg). Justifica el motivo y propón una fecha estimada para despachar el saldo pendiente. El vendedor revisará y aprobará o propondrá otra fecha.</div>
+
+      <div class="ped-tabs">
+        <button class="ped-tab act" onclick="setPedTab('pend')" id="ptab-pend">
+          Por justificar <span id="ptab-pend-cnt" style="background:var(--rosa);color:#fff;border-radius:20px;padding:1px 6px;font-size:11px;margin-left:3px;display:none">0</span>
+        </button>
+        <button class="ped-tab" onclick="setPedTab('revision')" id="ptab-revision">
+          Revisión vendedor <span id="ptab-revision-cnt" style="background:var(--amber);color:#fff;border-radius:20px;padding:1px 6px;font-size:11px;margin-left:3px;display:none">0</span>
+        </button>
+        <button class="ped-tab" onclick="setPedTab('espera')" id="ptab-espera">
+          En espera <span id="ptab-espera-cnt" style="background:#aaa;color:#fff;border-radius:20px;padding:1px 6px;font-size:11px;margin-left:3px;display:none">0</span>
+        </button>
+        <button class="ped-tab" onclick="setPedTab('cancelado')" id="ptab-cancelado">
+          Cancelados <span id="ptab-cancelado-cnt" style="background:var(--red);color:#fff;border-radius:20px;padding:1px 6px;font-size:11px;margin-left:3px;display:none">0</span>
+        </button>
+      </div>
+
+      <div class="ped-tab-content act" id="ped-tab-pend">
+        <div id="ped-pend-list"><p class="ped-empty">Cargando...</p></div>
+      </div>
+      <div class="ped-tab-content" id="ped-tab-revision">
+        <div id="ped-revision-list"><p class="ped-empty">Cargando...</p></div>
+      </div>
+      <div class="ped-tab-content" id="ped-tab-espera">
+        <div id="ped-espera-list"><p class="ped-empty">Cargando...</p></div>
+      </div>
+      <div class="ped-tab-content" id="ped-tab-cancelado">
+        <div id="ped-cancelado-list"><p class="ped-empty">Cargando...</p></div>
+      </div>
+
+      <div style="text-align:right;margin-top:8px">
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="cargarPedidosAplazados()">↻ Actualizar</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+var SUPA_URL = 'https://pqcgibsdewrrbukibubd.supabase.co';
+var SUPA_KEY = 'sb_publishable_M2_2LzTgPvj2s38Lq64Bzg_qrnJ-e1q';
+var H = {apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY, 'Content-Type': 'application/json', Prefer: 'return=representation'};
+
+function sbGet(t, p) {
+  return fetch(SUPA_URL + '/rest/v1/' + t + '?' + p, {headers: H}).then(function(r){ return r.ok ? r.json() : []; });
+}
+function sbPost(t, b) {
+  return fetch(SUPA_URL + '/rest/v1/' + t, {method: 'POST', headers: H, body: JSON.stringify(b)}).then(function(r){
+    return r.text().then(function(tx){ try{ return {data: JSON.parse(tx), error: r.ok ? null : tx}; } catch(e){ return {data: null, error: tx}; } });
+  });
+}
+
+var sesion = null;
+var ruteroData = [];
+var archivoNombre = '';
+
+window.addEventListener('load', function(){
+  var s = sessionStorage.getItem('lom_sesion');
+  if(s){ try{ sesion = JSON.parse(s); mostrarApp(); } catch(e){} }
+});
+
+function doLogin() {
+  var user = document.getElementById('login-user').value.trim().toUpperCase();
+  var pass = document.getElementById('login-pass').value;
+  if(!user || !pass) return;
+  showLoading('Verificando...');
+  fetch(SUPA_URL + '/rest/v1/usuarios?usuario=eq.' + encodeURIComponent(user) + '&select=id,usuario,nombre,punto,rol,password,activo', {
+    headers: {apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY}
+  }).then(function(r){ return r.json(); }).then(function(data){
+    hideLoading();
+    if(!data || !data.length || data[0].password !== pass || data[0].activo === false){
+      document.getElementById('login-error').classList.add('show');
+      document.getElementById('login-pass').value = '';
+      return;
+    }
+    var u = data[0];
+    sesion = {id: u.id, usuario: u.usuario, nombre: u.nombre, punto: u.punto, rol: u.rol};
+    sessionStorage.setItem('lom_sesion', JSON.stringify(sesion));
+    mostrarApp();
+  }).catch(function(e){ hideLoading(); alert('Error de conexion: ' + e.message); });
+}
+
+function mostrarApp() {
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('main-header').style.display = 'flex';
+  document.getElementById('main-content').style.display = 'block';
+  document.getElementById('user-badge').textContent = sesion.usuario + ' - ' + sesion.punto;
+  var _n=new Date(); var _c=new Date(_n.getTime()-5*60*60*1000);
+  document.getElementById('rutero-fecha').value = _c.toISOString().split('T')[0];
+  if (sesion.usuario === 'LOM1') {
+    document.getElementById('mtab-aplazados').style.display = '';
+    cargarPedidosAplazados();
+  }
+}
+
+function setMainTab(name) {
+  ['rutero','aplazados'].forEach(function(t) {
+    document.getElementById('mtab-'+t).classList.toggle('act', t===name);
+    document.getElementById('tab-'+t).classList.toggle('act', t===name);
+  });
+  if (name === 'aplazados') cargarPedidosAplazados();
+}
+
+function logout() {
+  sessionStorage.removeItem('lom_sesion');
+  sesion = null;
+  location.reload();
+}
+
+var dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', function(e){ e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', function(){ dz.classList.remove('drag'); });
+dz.addEventListener('drop', function(e){ e.preventDefault(); dz.classList.remove('drag'); var f = e.dataTransfer.files[0]; if(f) leerArchivo(f); });
+
+function procesarArchivo(input) { var f = input.files[0]; if(!f) return; leerArchivo(f); }
+
+function leerArchivo(file) {
+  archivoNombre = file.name;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type: 'array', cellDates: true});
+      var ws = wb.Sheets[wb.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(ws, {header: 0, defval: ''});
+      parsear(rows);
+    } catch(err) { alert('Error leyendo el archivo: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parsear(rows) {
+  ruteroData = [];
+  var warnings = [];
+  rows.forEach(function(row, i) {
+    var keys = Object.keys(row);
+    function get() {
+      var names = Array.prototype.slice.call(arguments);
+      for(var ni = 0; ni < names.length; ni++) {
+        var n = names[ni];
+        var k = null;
+        for(var ki = 0; ki < keys.length; ki++) {
+          if(keys[ki].toLowerCase().replace(/[\s.#]/g,'').indexOf(n.toLowerCase().replace(/[\s.#]/g,'')) >= 0) { k = keys[ki]; break; }
+        }
+        if(k && row[k] !== '' && row[k] !== null && row[k] !== undefined) return row[k];
+      }
+      return null;
+    }
+    var factura = String(get('defactura','factura','consecutivo') || '').trim();
+    var cliente = String(get('tercero','cliente','nombre') || '').trim();
+    var repartidor = String(get('transportador','transnportador','transnsportador','repartidor','domiciliario') || '').trim();
+    var sucursal = String(get('sucursal','suc','branch') || '').trim();
+    var direccion = String(get('direccion','direccon','address','dir') || '').trim();
+    var cantRaw = get('cantidad','kg','kilos','peso');
+    if(!factura || !cliente || !repartidor) return;
+
+    // Validar consecutivo — formato estricto XXXX-XXXXXXX
+    var facturaOriginal = factura;
+    var facturaError = null;
+    var guionPos = factura.indexOf('-');
+    if(guionPos < 0) {
+      facturaError = 'Fila '+(i+2)+': el consecutivo "'+facturaOriginal+'" no tiene el formato correcto. Debe ser XXXX-XXXXXXX (ejemplo: 2303-0202254)';
+    } else {
+      var partes = factura.split('-');
+      var prefPart = partes[0];
+      var numPart = partes[1] || '';
+      if(prefPart.length !== 4) {
+        facturaError = 'Fila '+(i+2)+': el prefijo "'+prefPart+'" debe tener exactamente 4 digitos (ejemplo: 2303)';
+      } else if(numPart.length !== 7) {
+        facturaError = 'Fila '+(i+2)+': el numero "'+numPart+'" debe tener exactamente 7 digitos. Tiene '+numPart.length+'. Correcto: '+prefPart+'-'+numPart.padStart(7,'0');
+      }
+    }
+    if(facturaError) { warnings.push(facturaError); return; }
+    var kg = parseFloat(String(cantRaw).replace(',','.'));
+    if(isNaN(kg)) { warnings.push('Fila ' + (i+2) + ': cantidad invalida - omitida'); return; }
+    var fecha = document.getElementById('rutero-fecha').value;
+    if(!fecha) { alert('Debes seleccionar la fecha de entrega antes de subir el archivo.'); return; }
+    ruteroData.push({factura: factura, cliente: cliente, repartidor: repartidor, sucursal: sucursal, direccion: direccion, kg: kg, fecha: fecha});
+  });
+  if(warnings.length) {
+    var wb2 = document.getElementById('warn-box');
+    wb2.innerHTML = '<strong>Se encontraron errores. Corrigelos en el archivo y vuelve a subirlo:</strong><br><br>' + warnings.join('<br>');
+    wb2.classList.add('show');
+    document.getElementById('preview-section').classList.add('show');
+    document.getElementById('btn-importar').style.display = 'none';
+    document.getElementById('preview-section').scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  if(!ruteroData.length) { alert('No se encontraron filas validas. Verifica que las columnas tengan los nombres correctos.'); return; }
+  document.getElementById('preview-count').textContent = ruteroData.length;
+  var html = '';
+  var max = Math.min(ruteroData.length, 30);
+  for(var i = 0; i < max; i++) {
+    var r = ruteroData[i];
+    html += '<tr><td style="color:var(--rosa);font-weight:600">' + r.factura + '</td><td style="color:var(--text3)">' + r.fecha + '</td><td>' + r.cliente + '</td><td style="color:var(--text2);font-size:12px">' + (r.sucursal||'-') + '</td><td style="color:var(--text2)">' + r.repartidor + '</td><td style="text-align:right">' + r.kg + '</td></tr>';
+  }
+  if(ruteroData.length > 30) html += '<tr><td colspan="5" style="color:var(--text3);font-size:12px;padding:8px 12px">... y ' + (ruteroData.length - 30) + ' mas</td></tr>';
+  document.getElementById('preview-tbody').innerHTML = html;
+  var wb2 = document.getElementById('warn-box');
+  if(warnings.length) { wb2.innerHTML = warnings.join('<br>'); wb2.classList.add('show'); } else { wb2.classList.remove('show'); }
+  document.getElementById('preview-section').classList.add('show');
+  document.getElementById('result-box').classList.remove('show');
+  document.getElementById('preview-section').scrollIntoView({behavior:'smooth'});
+}
+
+function importar() {
+  if(!ruteroData.length) return;
+  document.getElementById('btn-importar').disabled = true;
+  document.getElementById('btn-importar').textContent = 'Importando...';
+  showLoading('Preparando...');
+  var insertadas = 0, omitidas = 0, actualizadas = 0;
+  var cMap = {}, rMap = {}, fSet = new Set(), fMap = {};
+  Promise.all([
+    sbGet('clientes','select=id,nombre'),
+    sbGet('repartidores','select=id,nombre'),
+    sbGet('facturas','select=id,consecutivo,repartidor_id')
+  ]).then(function(results){
+    (results[0]||[]).forEach(function(c){ cMap[c.nombre.toLowerCase()] = c.id; });
+    (results[1]||[]).forEach(function(r){ rMap[r.nombre.toLowerCase()] = r.id; });
+    (results[2]||[]).forEach(function(f){ fSet.add(f.consecutivo); fMap[f.consecutivo] = {id: f.id, repartidor_id: f.repartidor_id}; });
+    return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
+  }).then(function(counts){
+    return sbPost('cargues_rutero', {usuario_id: sesion.id, usuario: sesion.usuario, punto: sesion.punto, facturas_importadas: counts[0], facturas_omitidas: counts[1], nombre_archivo: archivoNombre}).then(function(){ return counts; });
+  }).then(function(counts){
+    hideLoading();
+    document.getElementById('preview-section').classList.remove('show');
+    var rb = document.getElementById('result-box');
+    if(counts[0] > 0 || counts[2] > 0) {
+      rb.className = 'result-box show ok';
+      document.getElementById('result-icon').textContent = String.fromCodePoint(9989);
+      var titulo = [];
+      if(counts[0] > 0) titulo.push(counts[0] + ' facturas importadas');
+      if(counts[2] > 0) titulo.push(counts[2] + ' conductor' + (counts[2] !== 1 ? 'es' : '') + ' actualizado' + (counts[2] !== 1 ? 's' : ''));
+      document.getElementById('result-title').textContent = titulo.join(', ');
+      var sub = counts[1] > 0 ? (counts[1] + ' omitidas (ya existian sin cambios). ') : '';
+      sub += 'Registrado por ' + sesion.usuario + ' - ' + sesion.punto;
+      document.getElementById('result-sub').textContent = sub;
+    } else {
+      rb.className = 'result-box show err';
+      document.getElementById('result-icon').textContent = String.fromCodePoint(9888);
+      document.getElementById('result-title').textContent = 'No se importo ninguna factura';
+      document.getElementById('result-sub').textContent = 'Es posible que todas ya estuvieran registradas en el sistema.';
+    }
+  });
+}
+
+function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
+  if(idx >= ruteroData.length) return Promise.resolve([ins, om, act]);
+  var row = ruteroData[idx];
+  if(fSet.has(row.factura)) {
+    // Factura ya existe — verificar si cambió el conductor
+    var existing = fMap[row.factura];
+    var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
+      sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
+    return pRep.then(function(newRepId){
+      if(newRepId && existing && newRepId !== existing.repartidor_id) {
+        showLoading('Actualizando conductor en ' + row.factura + '...');
+        return sbPatch('facturas', 'id=eq.' + existing.id, {repartidor_id: newRepId}).then(function(){
+          return importarFilas(idx+1, ins, om, act+1, cMap, rMap, fSet, fMap);
+        });
+      }
+      return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap);
+    });
+  }
+  showLoading('Importando ' + row.factura + '...');
+  var pCliente = cMap[row.cliente.toLowerCase()] ? Promise.resolve(cMap[row.cliente.toLowerCase()]) :
+    sbPost('clientes', {nombre: row.cliente}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) cMap[row.cliente.toLowerCase()] = id; return id; });
+  var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
+    sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
+  return Promise.all([pCliente, pRep]).then(function(ids){
+    if(!ids[0] || !ids[1]) return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap);
+    return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null, direccion: row.direccion||null}).then(function(res){
+      return importarFilas(idx+1, res.error ? ins : ins+1, res.error ? om+1 : om, act, cMap, rMap, fSet, fMap);
+    });
+  });
+}
+
+// ─── SUPABASE PATCH ──────────────────────────────────────────────────────────
+function sbPatch(t, params, body) {
+  var h = Object.assign({}, H, {'Prefer': 'return=representation'});
+  return fetch(SUPA_URL + '/rest/v1/' + t + '?' + params, {method: 'PATCH', headers: h, body: JSON.stringify(body)}).then(function(r){
+    return r.text().then(function(tx){ try{ return {data: JSON.parse(tx), error: r.ok ? null : tx}; } catch(e){ return {data: null, error: tx}; } });
+  });
+}
+
+// ─── PEDIDOS APLAZADOS ────────────────────────────────────────────────────────
+var MOTIVOS_PLANTA = [
+  {id:'A', label:'Falta de materia prima (carne)'},
+  {id:'B', label:'Falta de personal en planta'},
+  {id:'C', label:'Falla en equipos / maquinaria'},
+  {id:'D', label:'Producto agotado / sin existencia'},
+  {id:'E', label:'Problema de transporte'},
+  {id:'F', label:'Temperatura / cadena de frío'},
+];
+var pedAplazados = [];
+var pedLookup   = {};  // { "pedido__cod": { producto, cant_pedida_original, cant_fac } }
+var activePedTab = 'pend';
+
+function pedFmt(n) { return (+(n||0)).toFixed(2).replace('.',','); }
+
+function cargarPedidosAplazados() {
+  document.getElementById('ped-pend-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
+  document.getElementById('ped-revision-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
+  document.getElementById('ped-espera-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
+
+  fetch(SUPA_URL+'/rest/v1/traz_reprog?select=*&order=created_at.asc', {headers:H})
+    .then(function(r) {
+      if (!r.ok) return r.text().then(function(t){ throw new Error('traz_reprog: '+t); });
+      return r.json();
+    })
+    .then(function(reprog) {
+      pedAplazados = reprog || [];
+      // Extraer solo los pedidos que necesitamos de traz_pedidos
+      var pedNums = pedAplazados.map(function(r){ return r.pedido; }).filter(Boolean);
+      if (!pedNums.length) { pedLookup = {}; renderPedidosAplazados(); return; }
+      var filtro = 'pedido=in.('+pedNums.map(function(p){ return encodeURIComponent(p); }).join(',')+')';
+      return fetch(SUPA_URL+'/rest/v1/traz_pedidos?select=pedido,cod_producto,producto,cant_pedida_original,cant_fac&'+filtro, {headers:H})
+        .then(function(r2) {
+          if (!r2.ok) return [];
+          return r2.json();
+        })
+        .then(function(peds) {
+          pedLookup = {};
+          (peds || []).forEach(function(p){ pedLookup[p.pedido+'__'+p.cod_producto] = p; });
+          var pend  = pedAplazados.filter(function(r){ return r.estado==='pendiente_planta'; }).length;
+          var rev   = pedAplazados.filter(function(r){ return r.estado==='pendiente_planta_revision'; }).length;
+          var cnt   = document.getElementById('mtab-aplazados-cnt');
+          if (cnt) { cnt.style.display = (pend+rev)>0?'':'none'; cnt.textContent = pend+rev; }
+          renderPedidosAplazados();
+        });
+    })
+    .catch(function(e) {
+      console.error('pedidos aplazados', e);
+      document.getElementById('ped-pend-list').innerHTML = '<p class="ped-empty" style="color:var(--red)">Error: '+e.message+'</p>';
+    });
+}
+
+function setPedTab(name) {
+  activePedTab = name;
+  ['pend','revision','espera','cancelado'].forEach(function(t) {
+    document.getElementById('ptab-'+t).classList.toggle('act', t===name);
+    document.getElementById('ped-tab-'+t).classList.toggle('act', t===name);
+  });
+}
+
+function renderPedidosAplazados() {
+  function esParcialValido(rp) {
+    var items = Array.isArray(rp.items_json) ? rp.items_json : [];
+    return items.some(function(it) {
+      var pd = pedLookup[it.k] || {};
+      var fac  = parseFloat(pd.cant_fac) || 0;
+      var orig = parseFloat(pd.cant_pedida_original) || 0;
+      return fac > 0 && (orig - fac) > 10;
+    });
+  }
+  var pend      = pedAplazados.filter(function(r){ return r.estado==='pendiente_planta' && esParcialValido(r); });
+  var revision  = pedAplazados.filter(function(r){ return r.estado==='pendiente_planta_revision'; });
+  var espera    = pedAplazados.filter(function(r){ return r.estado==='pendiente_vendedor'; });
+  var cancelado = pedAplazados.filter(function(r){ return r.estado==='cancelado_cliente'; });
+  setPedBadge('pend',      pend.length);
+  setPedBadge('revision',  revision.length);
+  setPedBadge('espera',    espera.length);
+  setPedBadge('cancelado', cancelado.length);
+  renderPedList('ped-pend-list',      pend,      'pend');
+  renderPedList('ped-revision-list',  revision,  'revision');
+  renderPedList('ped-espera-list',    espera,    'espera');
+  renderPedList('ped-cancelado-list', cancelado, 'cancelado');
+}
+
+function setPedBadge(tab, n) {
+  var el = document.getElementById('ptab-'+tab+'-cnt');
+  if (!el) return;
+  el.style.display = n > 0 ? '' : 'none';
+  el.textContent = n;
+}
+
+function renderPedList(cId, list, tipo) {
+  var el = document.getElementById(cId);
+  if (!el) return;
+  if (!list.length) {
+    var msgs = {
+      pend:'No hay pedidos parciales por justificar ✅<br><span style="font-size:11px;margin-top:6px;display:block">Aparecen aquí cuando Angélica sube el informe de Xirux y hay facturas con saldo pendiente mayor a 10 kg.</span>',
+      revision:'Sin pedidos en revisión',
+      espera:'Sin pedidos en espera del vendedor',
+      cancelado:'Sin pedidos cancelados por clientes'
+    };
+    el.innerHTML = '<p class="ped-empty">'+msgs[tipo]+'</p>';
+    return;
+  }
+  el.innerHTML = list.map(function(rp) {
+    var safeId = rp.id.replace(/-/g,'_');
+    var items  = Array.isArray(rp.items_json) ? rp.items_json : [];
+
+    var itemsHtml = items.length ? items.map(function(it) {
+      var pd = pedLookup[it.k] || {};
+      var prod = pd.producto || ('Cód. '+it.cod_producto) || '—';
+      var orig = pd.cant_pedida_original||0, fac = pd.cant_fac||0;
+      var pend = Math.max(0, orig-fac);
+      return '<div class="ped-item">'
+        + '<span style="flex:1;min-width:100px;font-weight:600">'+prod+'</span>'
+        + (orig ? '<span style="font-size:11px;color:var(--text3)">Pedido: <strong>'+pedFmt(orig)+'</strong> · Fac: <strong>'+pedFmt(fac)+'</strong> · <strong style="color:var(--red)">'+pedFmt(pend)+' kg pend.</strong></span>' : '')
+        + '</div>';
+    }).join('') : '<div class="ped-item" style="color:var(--text3)">Sin detalle de productos</div>';
+
+    var revisBox = '';
+    if (tipo==='revision' && rp.fecha_propuesta_vendedor) {
+      revisBox = '<div class="ped-revision-box">⚠️ El vendedor propone: <strong>'+rp.fecha_propuesta_vendedor+'</strong>'
+        + (rp.notas_vendedor ? ' &nbsp;·&nbsp; "'+rp.notas_vendedor+'"' : '')
+        + '<br>Puedes aceptar esa fecha o proponer otra.</div>';
+    }
+
+    var formHtml = '';
+    if (tipo==='pend' || tipo==='revision') {
+      var opts = MOTIVOS_PLANTA.map(function(m){
+        return '<option value="'+m.id+'"'+(rp.motivo_id===m.id?' selected':'')+'>'+m.id+'. '+m.label+'</option>';
+      }).join('');
+      formHtml = '<div class="ped-form">'
+        + '<div><label>Motivo *</label><select class="ped-select" id="mot-'+safeId+'"><option value="">— Seleccionar —</option>'+opts+'</select></div>'
+        + '<div><label>Fecha propuesta despacho *</label><input type="date" class="ped-date" id="fec-'+safeId+'" value="'+(rp.fecha_propuesta_planta||'')+'"></div>'
+        + '<div class="full"><label>Observación</label><input type="text" class="ped-input" id="obs-'+safeId+'" value="'+(rp.observacion_planta||'').replace(/"/g,'&quot;')+'" placeholder="Opcional..."></div>'
+        + '<div class="full" style="display:flex;justify-content:flex-end;gap:8px">'
+        + (tipo==='revision' ? '<button class="btn btn-ghost" style="font-size:13px" onclick="aceptarFechaVendedor(\''+rp.id+'\')">Aceptar fecha del vendedor</button>' : '')
+        + '<button class="btn btn-primary" style="font-size:13px" onclick="guardarJustifPlanta(\''+rp.id+'\',\''+safeId+'\')">Guardar justificación</button>'
+        + '</div></div>';
+    } else if (tipo==='cancelado') {
+      formHtml = '<div style="background:rgba(212,64,80,0.07);border:1px solid rgba(212,64,80,0.3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);margin-top:4px">'
+        + '🚫 El vendedor reportó que el cliente no requiere este despacho.'
+        + (rp.notas_vendedor ? ' &nbsp;"'+rp.notas_vendedor+'"' : '')
+        + '</div>';
+    } else {
+      formHtml = '<div class="ped-espera-box">✓ Justificado — Motivo <strong>'+rp.motivo_id+'</strong> · Fecha propuesta: <strong>'+(rp.fecha_propuesta_planta||'—')+'</strong><br>'
+        + '<span style="opacity:.8">Esperando aprobación del vendedor...</span></div>';
+    }
+
+    return '<div class="ped-card">'
+      + '<div class="ped-card-head">'
+      + '<span class="ped-pedido">'+rp.pedido+'</span>'
+      + '<span style="color:var(--text3)">·</span>'
+      + '<span style="font-size:13px;font-weight:500">'+(rp.tercero||'—')+'</span>'
+      + '</div>'
+      + revisBox
+      + '<div class="ped-items">'+itemsHtml+'</div>'
+      + formHtml
+      + '</div>';
+  }).join('');
+}
+
+function guardarJustifPlanta(reprogId, safeId) {
+  var motivo_id = (document.getElementById('mot-'+safeId)||{}).value||'';
+  var fecha     = (document.getElementById('fec-'+safeId)||{}).value||'';
+  var obs       = ((document.getElementById('obs-'+safeId)||{}).value||'').trim();
+  if (!motivo_id) { alert('Selecciona un motivo antes de guardar'); return; }
+  if (!fecha)     { alert('Indica la fecha propuesta de despacho'); return; }
+  var motLabel = (MOTIVOS_PLANTA.find(function(m){return m.id===motivo_id;})||{}).label||'';
+  showLoading('Guardando justificación...');
+  sbPatch('traz_reprog', 'id=eq.'+reprogId, {
+    motivo_id:motivo_id, motivo_label:motLabel,
+    observacion_planta:obs||null, fecha_propuesta_planta:fecha,
+    estado:'pendiente_vendedor', updated_at:new Date().toISOString()
+  }).then(function(res) {
+    if (res.error) { hideLoading(); alert('Error: '+res.error); return; }
+    hideLoading();
+    cargarPedidosAplazados();
+    setPedTab('espera');
+  }).catch(function(e){ hideLoading(); alert('Error: '+e.message); });
+}
+
+function aceptarFechaVendedor(reprogId) {
+  var rp = pedAplazados.find(function(r){ return r.id===reprogId; });
+  if (!rp || !rp.fecha_propuesta_vendedor) { alert('No hay fecha del vendedor para aceptar'); return; }
+  showLoading('Aceptando fecha...');
+  sbPatch('traz_reprog', 'id=eq.'+reprogId, {
+    fecha_propuesta_planta:rp.fecha_propuesta_vendedor,
+    fecha_acordada:rp.fecha_propuesta_vendedor,
+    estado:'aprobado', updated_at:new Date().toISOString()
+  }).then(function(res) {
+    if (res.error) { hideLoading(); alert('Error: '+res.error); return; }
+    hideLoading();
+    cargarPedidosAplazados();
+  }).catch(function(e){ hideLoading(); alert('Error: '+e.message); });
+}
+
+function cancelar() { ruteroData = []; document.getElementById('preview-section').classList.remove('show'); document.getElementById('rutero-file').value = ''; document.getElementById('btn-importar').style.display = ''; }
+function resetUpload() { cancelar(); document.getElementById('result-box').classList.remove('show'); document.getElementById('btn-importar').disabled = false; document.getElementById('btn-importar').textContent = 'Confirmar e importar'; window.scrollTo(0,0); }
+function showLoading(txt) { document.getElementById('loading-txt').textContent = txt || 'Procesando...'; document.getElementById('loading').classList.add('show'); }
+function hideLoading() { document.getElementById('loading').classList.remove('show'); }
+</script>
+</body>
+</html>
