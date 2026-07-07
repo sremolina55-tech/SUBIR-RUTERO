@@ -303,11 +303,14 @@ function doLogin() {
   }).catch(function(e){ hideLoading(); alert('Error de conexion: ' + e.message); });
 }
 
+var _repMap = {};
 function mostrarApp() {
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('main-header').style.display = 'flex';
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('user-badge').textContent = sesion.usuario + ' - ' + sesion.punto;
+  fetch(SUPA_URL+'/rest/v1/repartidores?select=id,nombre&limit=200',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}})
+    .then(function(r){return r.ok?r.json():[];}).then(function(reps){(reps||[]).forEach(function(r){_repMap[r.nombre.toLowerCase()]=r.id;});});
   if (sesion.usuario === 'LOM1') {
     document.getElementById('mtab-aplazados').style.display = '';
     cargarPedidosAplazados();
@@ -373,8 +376,8 @@ function parsear(rows) {
     var direccion = String(get('direccion','direccon','address','dir') || '').trim();
     var cantRaw = get('cantidad','kg','kilos','peso');
     if(!factura || !cliente || !repartidor) return;
-    if(repartidor.trim().split(/\s+/).length < 2){
-      warnings.push('Fila '+(i+2)+': el transportador "'+repartidor+'" debe tener nombre y apellido (ej: LUIS BETANCUR)');
+    if(_repMap && Object.keys(_repMap).length && !_repMap[repartidor.toLowerCase()]){
+      warnings.push('Fila '+(i+2)+': el transportador "'+repartidor+'" no existe en el sistema. Verifica el nombre exacto.');
       return;
     }
 
@@ -491,8 +494,7 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   if(fSet.has(row.factura)) {
     // Factura ya existe — verificar si cambió el conductor
     var existing = fMap[row.factura];
-    var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
-      sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
+    var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
     return pRep.then(function(newRepId){
       if(newRepId && existing && newRepId !== existing.repartidor_id) {
         showLoading('Actualizando conductor en ' + row.factura + '...');
@@ -506,8 +508,7 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   showLoading('Importando ' + row.factura + '...');
   var pCliente = cMap[row.cliente.toLowerCase()] ? Promise.resolve(cMap[row.cliente.toLowerCase()]) :
     sbPost('clientes', {nombre: row.cliente}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) cMap[row.cliente.toLowerCase()] = id; return id; });
-  var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
-    sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
+  var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
   return Promise.all([pCliente, pRep]).then(function(ids){
     if(!ids[0] || !ids[1]) return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap);
     return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null, direccion: row.direccion||null}).then(function(res){
