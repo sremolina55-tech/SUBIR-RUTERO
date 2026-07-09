@@ -303,12 +303,15 @@ function doLogin() {
   }).catch(function(e){ hideLoading(); alert('Error de conexion: ' + e.message); });
 }
 
+var _repMap = {};
 function mostrarApp() {
   document.getElementById('login-overlay').style.display = 'none';
   document.getElementById('main-header').style.display = 'flex';
   document.getElementById('main-content').style.display = 'block';
   document.getElementById('user-badge').textContent = sesion.usuario + ' - ' + sesion.punto;
-  if (sesion.usuario === 'LOM1') {
+  fetch(SUPA_URL+'/rest/v1/repartidores?select=id,nombre&limit=200',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}})
+    .then(function(r){return r.ok?r.json():[];}).then(function(reps){(reps||[]).forEach(function(r){_repMap[r.nombre.toLowerCase()]=r.id;});});
+  if (sesion.rol === 'operador') {
     document.getElementById('mtab-aplazados').style.display = '';
     cargarPedidosAplazados();
   }
@@ -370,9 +373,13 @@ function parsear(rows) {
     var cliente = String(get('tercero','cliente','nombre') || '').trim();
     var repartidor = String(get('transportador','transnportador','transnsportador','repartidor','domiciliario') || '').trim();
     var sucursal = String(get('sucursal','suc','branch') || '').trim();
+    var direccion = String(get('direccion','direccon','address','dir') || '').trim();
     var cantRaw = get('cantidad','kg','kilos','peso');
-    var fechaRaw = get('fecentr','fecha','date','fec');
     if(!factura || !cliente || !repartidor) return;
+    if(repartidor.trim().split(/\s+/).length < 2){
+      warnings.push('Fila '+(i+2)+': el transportador "'+repartidor+'" debe tener nombre Y apellido (ej: LUIS BETANCUR). Corrige el archivo y vuelve a subirlo.');
+      return;
+    }
 
     // Validar consecutivo — formato estricto XXXX-XXXXXXX
     var facturaOriginal = factura;
@@ -393,17 +400,26 @@ function parsear(rows) {
     if(facturaError) { warnings.push(facturaError); return; }
     var kg = parseFloat(String(cantRaw).replace(',','.'));
     if(isNaN(kg)) { warnings.push('Fila ' + (i+2) + ': cantidad invalida - omitida'); return; }
-    var fecha = new Date().toISOString().split('T')[0];
-    if(fechaRaw) {
-      if(fechaRaw instanceof Date) { fecha = fechaRaw.toISOString().split('T')[0]; }
-      else if(!isNaN(Number(fechaRaw)) && Number(fechaRaw) > 40000) {
-        // Numero serial de Excel — convertir a fecha
-        var d = new Date(Math.round((Number(fechaRaw) - 25569) * 86400 * 1000));
-        fecha = d.toISOString().split('T')[0];
+    var fechaRaw = get('fecentr','fecenr','fechaentrega','fechaentr','fecha','date','fec','fecent');
+    var fecha = '';
+    if(fechaRaw instanceof Date){
+      // Date object de SheetJS — usar UTC para no desfasar por zona horaria
+      fecha = fechaRaw.toISOString().split('T')[0];
+    } else if(!isNaN(Number(fechaRaw)) && Number(fechaRaw) > 40000){
+      // Serial numérico de Excel
+      var _d = new Date(Math.round((Number(fechaRaw) - 25569) * 86400 * 1000));
+      fecha = _d.toISOString().split('T')[0];
+    } else if(fechaRaw){
+      var _s = String(fechaRaw).trim();
+      // DD/MM/YYYY o DD-MM-YYYY
+      var _p = _s.split(/[\/\-]/);
+      if(_p.length === 3){
+        if(_p[0].length <= 2) fecha = _p[2].padStart(4,'0')+'-'+_p[1].padStart(2,'0')+'-'+_p[0].padStart(2,'0');
+        else fecha = _p[0]+'-'+_p[1].padStart(2,'0')+'-'+_p[2].padStart(2,'0');
       }
-      else { var p = String(fechaRaw).split('/'); if(p.length === 3) fecha = p[2].padStart(4,'0') + '-' + p[1].padStart(2,'0') + '-' + p[0].padStart(2,'0'); }
     }
-    ruteroData.push({factura: factura, cliente: cliente, repartidor: repartidor, sucursal: sucursal, kg: kg, fecha: fecha});
+    if(!fecha){ var _n=new Date();fecha=new Date(_n.getTime()-5*60*60*1000).toISOString().split('T')[0]; }
+    ruteroData.push({factura: factura, cliente: cliente, repartidor: repartidor, sucursal: sucursal, direccion: direccion, kg: kg, fecha: fecha});
   });
   if(warnings.length) {
     var wb2 = document.getElementById('warn-box');
@@ -478,8 +494,7 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   if(fSet.has(row.factura)) {
     // Factura ya existe — verificar si cambió el conductor
     var existing = fMap[row.factura];
-    var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
-      sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
+    var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
     return pRep.then(function(newRepId){
       if(newRepId && existing && newRepId !== existing.repartidor_id) {
         showLoading('Actualizando conductor en ' + row.factura + '...');
@@ -493,11 +508,10 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   showLoading('Importando ' + row.factura + '...');
   var pCliente = cMap[row.cliente.toLowerCase()] ? Promise.resolve(cMap[row.cliente.toLowerCase()]) :
     sbPost('clientes', {nombre: row.cliente}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) cMap[row.cliente.toLowerCase()] = id; return id; });
-  var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
-    sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
+  var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
   return Promise.all([pCliente, pRep]).then(function(ids){
     if(!ids[0] || !ids[1]) return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap);
-    return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null}).then(function(res){
+    return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null, direccion: row.direccion||null}).then(function(res){
       return importarFilas(idx+1, res.error ? ins : ins+1, res.error ? om+1 : om, act, cMap, rMap, fSet, fMap);
     });
   });
@@ -531,7 +545,7 @@ function cargarPedidosAplazados() {
   document.getElementById('ped-revision-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
   document.getElementById('ped-espera-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
 
-  fetch(SUPA_URL+'/rest/v1/traz_reprog?select=*&order=created_at.asc', {headers:H})
+  fetch(SUPA_URL+'/rest/v1/traz_reprog?select=*&punto=eq.'+encodeURIComponent(sesion.punto)+'&order=created_at.asc', {headers:H})
     .then(function(r) {
       if (!r.ok) return r.text().then(function(t){ throw new Error('traz_reprog: '+t); });
       return r.json();
