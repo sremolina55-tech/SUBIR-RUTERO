@@ -443,11 +443,14 @@ function parsear(rows) {
   document.getElementById('preview-section').scrollIntoView({behavior:'smooth'});
 }
 
+var _failedReps = [];
+
 function importar() {
   if(!ruteroData.length) return;
   document.getElementById('btn-importar').disabled = true;
   document.getElementById('btn-importar').textContent = 'Importando...';
   showLoading('Preparando...');
+  _failedReps = [];
   var insertadas = 0, omitidas = 0, actualizadas = 0;
   var cMap = {}, rMap = {}, fSet = new Set(), fMap = {};
   Promise.all([
@@ -465,6 +468,8 @@ function importar() {
     hideLoading();
     document.getElementById('preview-section').classList.remove('show');
     var rb = document.getElementById('result-box');
+    var uniqFailed = _failedReps.filter(function(v,i,a){return a.indexOf(v)===i;});
+    var failMsg = uniqFailed.length ? '<br><br><strong style="color:var(--red)">Transportadores no registrados (filas omitidas):</strong><br>' + uniqFailed.join('<br>') + '<br><small>Agregalos en la tabla repartidores de Supabase y vuelve a subir el archivo.</small>' : '';
     if(counts[0] > 0 || counts[2] > 0) {
       rb.className = 'result-box show ok';
       document.getElementById('result-icon').textContent = String.fromCodePoint(9989);
@@ -472,14 +477,15 @@ function importar() {
       if(counts[0] > 0) titulo.push(counts[0] + ' facturas importadas');
       if(counts[2] > 0) titulo.push(counts[2] + ' conductor' + (counts[2] !== 1 ? 'es' : '') + ' actualizado' + (counts[2] !== 1 ? 's' : ''));
       document.getElementById('result-title').textContent = titulo.join(', ');
-      var sub = counts[1] > 0 ? (counts[1] + ' omitidas (ya existian sin cambios). ') : '';
+      var sub = counts[1] > 0 ? (counts[1] + ' omitidas. ') : '';
       sub += 'Registrado por ' + sesion.usuario + ' - ' + sesion.punto;
-      document.getElementById('result-sub').textContent = sub;
+      document.getElementById('result-sub').innerHTML = sub + failMsg;
     } else {
       rb.className = 'result-box show err';
       document.getElementById('result-icon').textContent = String.fromCodePoint(9888);
       document.getElementById('result-title').textContent = 'No se importo ninguna factura';
-      document.getElementById('result-sub').textContent = 'Es posible que todas ya estuvieran registradas en el sistema.';
+      var errMsg = counts[1] > 0 ? counts[1] + ' filas omitidas.' : 'Todas las facturas ya estaban registradas.';
+      document.getElementById('result-sub').innerHTML = errMsg + failMsg;
     }
   });
 }
@@ -520,7 +526,7 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
       return sbGet('repartidores','select=id&nombre=eq.'+encodeURIComponent(row.repartidor)+'&limit=1').then(function(rows){ var fid=rows&&rows[0]?rows[0].id:null; if(fid) rMap[row.repartidor.toLowerCase()]=fid; return fid; });
     });
   return Promise.all([pCliente, pRep]).then(function(ids){
-    if(!ids[0] || !ids[1]) return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap);
+    if(!ids[0] || !ids[1]) { if(!ids[1]) _failedReps.push(row.repartidor); return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap); }
     return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null, direccion: row.direccion||null}).then(function(res){
       return importarFilas(idx+1, res.error ? ins : ins+1, res.error ? om+1 : om, act, cMap, rMap, fSet, fMap);
     });
