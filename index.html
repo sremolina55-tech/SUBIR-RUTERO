@@ -311,7 +311,7 @@ function mostrarApp() {
   document.getElementById('user-badge').textContent = sesion.usuario + ' - ' + sesion.punto;
   fetch(SUPA_URL+'/rest/v1/repartidores?select=id,nombre&limit=200',{headers:{apikey:SUPA_KEY,Authorization:'Bearer '+SUPA_KEY}})
     .then(function(r){return r.ok?r.json():[];}).then(function(reps){(reps||[]).forEach(function(r){_repMap[r.nombre.toLowerCase()]=r.id;});});
-  if (sesion.usuario === 'LOM1') {
+  if (sesion.rol === 'operador') {
     document.getElementById('mtab-aplazados').style.display = '';
     cargarPedidosAplazados();
   }
@@ -494,7 +494,8 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   if(fSet.has(row.factura)) {
     // Factura ya existe — verificar si cambió el conductor
     var existing = fMap[row.factura];
-    var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
+    var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
+      sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
     return pRep.then(function(newRepId){
       if(newRepId && existing && newRepId !== existing.repartidor_id) {
         showLoading('Actualizando conductor en ' + row.factura + '...');
@@ -508,7 +509,8 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   showLoading('Importando ' + row.factura + '...');
   var pCliente = cMap[row.cliente.toLowerCase()] ? Promise.resolve(cMap[row.cliente.toLowerCase()]) :
     sbPost('clientes', {nombre: row.cliente}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) cMap[row.cliente.toLowerCase()] = id; return id; });
-  var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
+  var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
+    sbPost('repartidores', {nombre: row.repartidor}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) rMap[row.repartidor.toLowerCase()] = id; return id; });
   return Promise.all([pCliente, pRep]).then(function(ids){
     if(!ids[0] || !ids[1]) return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap);
     return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null, direccion: row.direccion||null}).then(function(res){
@@ -545,7 +547,7 @@ function cargarPedidosAplazados() {
   document.getElementById('ped-revision-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
   document.getElementById('ped-espera-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
 
-  fetch(SUPA_URL+'/rest/v1/traz_reprog?select=*&order=created_at.asc', {headers:H})
+  fetch(SUPA_URL+'/rest/v1/traz_reprog?select=*&punto=eq.'+encodeURIComponent(sesion.punto)+'&order=created_at.asc', {headers:H})
     .then(function(r) {
       if (!r.ok) return r.text().then(function(t){ throw new Error('traz_reprog: '+t); });
       return r.json();
