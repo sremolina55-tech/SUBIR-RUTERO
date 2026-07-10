@@ -461,7 +461,31 @@ function importar() {
     (results[0]||[]).forEach(function(c){ cMap[c.nombre.toLowerCase()] = c.id; });
     (results[1]||[]).forEach(function(r){ rMap[r.nombre.toLowerCase()] = r.id; });
     (results[2]||[]).forEach(function(f){ fSet.add(f.consecutivo); fMap[f.consecutivo] = {id: f.id, repartidor_id: f.repartidor_id}; });
-    return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
+
+    // Pre-crear repartidores nuevos antes de importar filas
+    var missingReps = [], seenReps = {};
+    ruteroData.forEach(function(row){
+      var k = row.repartidor.toLowerCase();
+      if(!rMap[k] && !seenReps[k]){ seenReps[k]=true; missingReps.push(row.repartidor); }
+    });
+    if(!missingReps.length) return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
+    showLoading('Registrando '+missingReps.length+' transportador(es) nuevo(s)...');
+    return missingReps.reduce(function(p, nombre){
+      return p.then(function(){
+        return fetch(SUPA_URL+'/rest/v1/repartidores', {
+          method:'POST',
+          headers:{apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY, 'Content-Type':'application/json', 'Prefer':'return=minimal'},
+          body:JSON.stringify({nombre:nombre})
+        }).then(function(){
+          return sbGet('repartidores','select=id&nombre=eq.'+encodeURIComponent(nombre)+'&limit=1');
+        }).then(function(rows){
+          var id=rows&&rows[0]?rows[0].id:null;
+          if(id) rMap[nombre.toLowerCase()]=id; else _failedReps.push(nombre);
+        }).catch(function(){ _failedReps.push(nombre); });
+      });
+    }, Promise.resolve()).then(function(){
+      return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
+    });
   }).then(function(counts){
     return sbPost('cargues_rutero', {usuario_id: sesion.id, usuario: sesion.usuario, punto: sesion.punto, facturas_importadas: counts[0], facturas_omitidas: counts[1], nombre_archivo: archivoNombre}).then(function(){ return counts; });
   }).then(function(counts){
@@ -496,12 +520,7 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   if(fSet.has(row.factura)) {
     // Factura ya existe — verificar si cambió el conductor
     var existing = fMap[row.factura];
-    var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
-      sbPost('repartidores', {nombre: row.repartidor}).then(function(r){
-        var id = r.data && r.data[0] ? r.data[0].id : null;
-        if(id){ rMap[row.repartidor.toLowerCase()]=id; return id; }
-        return sbGet('repartidores','select=id&nombre=eq.'+encodeURIComponent(row.repartidor)+'&limit=1').then(function(rows){ var fid=rows&&rows[0]?rows[0].id:null; if(fid) rMap[row.repartidor.toLowerCase()]=fid; return fid; });
-      });
+    var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()] || null);
     return pRep.then(function(newRepId){
       if(newRepId && existing && newRepId !== existing.repartidor_id) {
         showLoading('Actualizando conductor en ' + row.factura + '...');
@@ -519,12 +538,7 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
       if(id){ cMap[row.cliente.toLowerCase()]=id; return id; }
       return sbGet('clientes','select=id&nombre=eq.'+encodeURIComponent(row.cliente)+'&limit=1').then(function(rows){ var fid=rows&&rows[0]?rows[0].id:null; if(fid) cMap[row.cliente.toLowerCase()]=fid; return fid; });
     });
-  var pRep = rMap[row.repartidor.toLowerCase()] ? Promise.resolve(rMap[row.repartidor.toLowerCase()]) :
-    sbPost('repartidores', {nombre: row.repartidor}).then(function(r){
-      var id = r.data && r.data[0] ? r.data[0].id : null;
-      if(id){ rMap[row.repartidor.toLowerCase()]=id; return id; }
-      return sbGet('repartidores','select=id&nombre=eq.'+encodeURIComponent(row.repartidor)+'&limit=1').then(function(rows){ var fid=rows&&rows[0]?rows[0].id:null; if(fid) rMap[row.repartidor.toLowerCase()]=fid; return fid; });
-    });
+  var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()] || null);
   return Promise.all([pCliente, pRep]).then(function(ids){
     if(!ids[0] || !ids[1]) { if(!ids[1]) _failedReps.push(row.repartidor); return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap); }
     return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null, direccion: row.direccion||null}).then(function(res){
