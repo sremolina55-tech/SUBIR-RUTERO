@@ -462,7 +462,7 @@ function importar() {
     (results[1]||[]).forEach(function(r){ rMap[r.nombre.toLowerCase()] = r.id; });
     (results[2]||[]).forEach(function(f){ fSet.add(f.consecutivo); fMap[f.consecutivo] = {id: f.id, repartidor_id: f.repartidor_id}; });
 
-    // Auto-crear repartidores nuevos antes de importar
+    // Auto-crear repartidores nuevos via RPC (SECURITY DEFINER, sin RLS)
     var newReps = [], seenR = {};
     ruteroData.forEach(function(row){
       var k = row.repartidor.toLowerCase();
@@ -472,14 +472,13 @@ function importar() {
     showLoading('Registrando transportadores nuevos...');
     return newReps.reduce(function(p, nombre){
       return p.then(function(){
-        var k = nombre.toLowerCase();
-        return fetch(SUPA_URL+'/rest/v1/repartidores', {
+        return fetch(SUPA_URL+'/rest/v1/rpc/get_or_create_repartidor', {
           method:'POST',
           headers:{apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY, 'Content-Type':'application/json'},
-          body:JSON.stringify({nombre:nombre})
-        }).then(function(){
-          return sbGet('repartidores','select=id&nombre=eq.'+encodeURIComponent(nombre)+'&limit=1');
-        }).then(function(rows){ if(rows&&rows[0]) rMap[k]=rows[0].id; });
+          body:JSON.stringify({p_nombre: nombre})
+        }).then(function(r){ return r.ok ? r.json() : null; }).then(function(id){
+          if(id) rMap[nombre.toLowerCase()] = id;
+        });
       });
     }, Promise.resolve()).then(function(){
       return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
