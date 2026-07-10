@@ -443,28 +443,6 @@ function parsear(rows) {
   document.getElementById('preview-section').scrollIntoView({behavior:'smooth'});
 }
 
-function _getOrCreate(tabla, nombre, map) {
-  var k = nombre.toLowerCase();
-  if(map[k]) return Promise.resolve(map[k]);
-  // GET primero por si ya existe
-  return sbGet(tabla, 'select=id&nombre=eq.'+encodeURIComponent(nombre)+'&limit=1').then(function(rows){
-    if(rows && rows[0]){ map[k]=rows[0].id; return rows[0].id; }
-    // No existe — POST sin Prefer header (solo crea, no necesita respuesta)
-    return fetch(SUPA_URL+'/rest/v1/'+tabla, {
-      method:'POST',
-      headers:{apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY, 'Content-Type':'application/json'},
-      body:JSON.stringify({nombre:nombre})
-    }).then(function(){
-      // GET para obtener el id recién creado
-      return sbGet(tabla, 'select=id&nombre=eq.'+encodeURIComponent(nombre)+'&limit=1');
-    }).then(function(rows2){
-      var id = rows2&&rows2[0] ? rows2[0].id : null;
-      if(id) map[k]=id;
-      return id;
-    });
-  });
-}
-
 function importar() {
   if(!ruteroData.length) return;
   document.getElementById('btn-importar').disabled = true;
@@ -480,10 +458,27 @@ function importar() {
     (results[0]||[]).forEach(function(c){ cMap[c.nombre.toLowerCase()] = c.id; });
     (results[1]||[]).forEach(function(r){ rMap[r.nombre.toLowerCase()] = r.id; });
     (results[2]||[]).forEach(function(f){ fSet.add(f.consecutivo); fMap[f.consecutivo] = {id: f.id, repartidor_id: f.repartidor_id}; });
+
+    var missing = [], seen = {};
+    ruteroData.forEach(function(row){
+      var k = row.repartidor.toLowerCase();
+      if(!rMap[k] && !seen[k]){ seen[k]=true; missing.push(row.repartidor); }
+    });
+    if(missing.length){
+      hideLoading();
+      document.getElementById('btn-importar').disabled = false;
+      document.getElementById('btn-importar').textContent = 'Confirmar e importar';
+      var wb2 = document.getElementById('warn-box');
+      wb2.innerHTML = '<strong>Transportadores no registrados — agregalos en Supabase (tabla repartidores) y vuelve a subir el archivo:</strong><br><br>' + missing.join('<br>');
+      wb2.classList.add('show');
+      return null;
+    }
     return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
   }).then(function(counts){
+    if(!counts) return;
     return sbPost('cargues_rutero', {usuario_id: sesion.id, usuario: sesion.usuario, punto: sesion.punto, facturas_importadas: counts[0], facturas_omitidas: counts[1], nombre_archivo: archivoNombre}).then(function(){ return counts; });
   }).then(function(counts){
+    if(!counts) return;
     hideLoading();
     document.getElementById('preview-section').classList.remove('show');
     var rb = document.getElementById('result-box');
@@ -524,8 +519,9 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
     });
   }
   showLoading('Importando ' + row.factura + '...');
-  var pCliente = _getOrCreate('clientes', row.cliente, cMap);
-  var pRep = _getOrCreate('repartidores', row.repartidor, rMap);
+  var pCliente = cMap[row.cliente.toLowerCase()] ? Promise.resolve(cMap[row.cliente.toLowerCase()]) :
+    sbPost('clientes', {nombre: row.cliente}).then(function(r){ var id=r.data&&r.data[0]?r.data[0].id:null; if(id) cMap[row.cliente.toLowerCase()]=id; return id; });
+  var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
   return Promise.all([pCliente, pRep]).then(function(ids){
     if(!ids[0] || !ids[1]) return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap);
     return sbPost('facturas', {consecutivo: row.factura, fecha: row.fecha, cliente_id: ids[0], repartidor_id: ids[1], kg_facturados: row.kg, precio_unitario: 8500, estado: 'pendiente', sucursal: row.sucursal||null, direccion: row.direccion||null}).then(function(res){
