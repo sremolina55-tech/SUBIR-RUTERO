@@ -376,10 +376,6 @@ function parsear(rows) {
     var direccion = String(get('direccion','direccon','address','dir') || '').trim();
     var cantRaw = get('cantidad','kg','kilos','peso');
     if(!factura || !cliente || !repartidor) return;
-    if(repartidor.trim().split(/\s+/).length < 2){
-      warnings.push('Fila '+(i+2)+': el transportador "'+repartidor+'" debe tener nombre Y apellido (ej: LUIS BETANCUR). Corrige el archivo y vuelve a subirlo.');
-      return;
-    }
 
     // Validar consecutivo — formato estricto XXXX-XXXXXXX
     var facturaOriginal = factura;
