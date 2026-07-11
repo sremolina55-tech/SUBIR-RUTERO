@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Lomarosa - Subir Rutero</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -376,10 +379,6 @@ function parsear(rows) {
     var direccion = String(get('direccion','direccon','address','dir') || '').trim();
     var cantRaw = get('cantidad','kg','kilos','peso');
     if(!factura || !cliente || !repartidor) return;
-    if(repartidor.trim().split(/\s+/).length < 2){
-      warnings.push('Fila '+(i+2)+': el transportador "'+repartidor+'" debe tener nombre Y apellido (ej: LUIS BETANCUR). Corrige el archivo y vuelve a subirlo.');
-      return;
-    }
 
     // Validar consecutivo — formato estricto XXXX-XXXXXXX
     var facturaOriginal = factura;
@@ -451,7 +450,7 @@ function importar() {
   if(!ruteroData.length) return;
   document.getElementById('btn-importar').disabled = true;
   document.getElementById('btn-importar').textContent = 'Importando...';
-  showLoading('Preparando...');
+  showLoading('Cargando datos...');
   var insertadas = 0, omitidas = 0, actualizadas = 0;
   var cMap = {}, rMap = {}, fSet = new Set(), fMap = {};
   Promise.all([
@@ -462,10 +461,33 @@ function importar() {
     (results[0]||[]).forEach(function(c){ cMap[c.nombre.toLowerCase()] = c.id; });
     (results[1]||[]).forEach(function(r){ rMap[r.nombre.toLowerCase()] = r.id; });
     (results[2]||[]).forEach(function(f){ fSet.add(f.consecutivo); fMap[f.consecutivo] = {id: f.id, repartidor_id: f.repartidor_id}; });
-    return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
+
+    // Auto-crear repartidores nuevos via RPC (SECURITY DEFINER, sin RLS)
+    var newReps = [], seenR = {};
+    ruteroData.forEach(function(row){
+      var k = row.repartidor.toLowerCase();
+      if(!rMap[k] && !seenR[k]){ seenR[k]=true; newReps.push(row.repartidor); }
+    });
+    if(!newReps.length) return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
+    showLoading('Registrando transportadores nuevos...');
+    return newReps.reduce(function(p, nombre){
+      return p.then(function(){
+        return fetch(SUPA_URL+'/rest/v1/rpc/get_or_create_repartidor', {
+          method:'POST',
+          headers:{apikey:SUPA_KEY, Authorization:'Bearer '+SUPA_KEY, 'Content-Type':'application/json'},
+          body:JSON.stringify({p_nombre: nombre})
+        }).then(function(r){ return r.ok ? r.json() : null; }).then(function(id){
+          if(id) rMap[nombre.toLowerCase()] = id;
+        });
+      });
+    }, Promise.resolve()).then(function(){
+      return importarFilas(0, insertadas, omitidas, actualizadas, cMap, rMap, fSet, fMap);
+    });
   }).then(function(counts){
+    if(!counts) return;
     return sbPost('cargues_rutero', {usuario_id: sesion.id, usuario: sesion.usuario, punto: sesion.punto, facturas_importadas: counts[0], facturas_omitidas: counts[1], nombre_archivo: archivoNombre}).then(function(){ return counts; });
   }).then(function(counts){
+    if(!counts) return;
     hideLoading();
     document.getElementById('preview-section').classList.remove('show');
     var rb = document.getElementById('result-box');
@@ -476,14 +498,14 @@ function importar() {
       if(counts[0] > 0) titulo.push(counts[0] + ' facturas importadas');
       if(counts[2] > 0) titulo.push(counts[2] + ' conductor' + (counts[2] !== 1 ? 'es' : '') + ' actualizado' + (counts[2] !== 1 ? 's' : ''));
       document.getElementById('result-title').textContent = titulo.join(', ');
-      var sub = counts[1] > 0 ? (counts[1] + ' omitidas (ya existian sin cambios). ') : '';
+      var sub = counts[1] > 0 ? (counts[1] + ' omitidas (ya existian). ') : '';
       sub += 'Registrado por ' + sesion.usuario + ' - ' + sesion.punto;
       document.getElementById('result-sub').textContent = sub;
     } else {
       rb.className = 'result-box show err';
       document.getElementById('result-icon').textContent = String.fromCodePoint(9888);
       document.getElementById('result-title').textContent = 'No se importo ninguna factura';
-      document.getElementById('result-sub').textContent = 'Es posible que todas ya estuvieran registradas en el sistema.';
+      document.getElementById('result-sub').textContent = counts[1] > 0 ? counts[1] + ' filas omitidas.' : 'Todas las facturas ya estaban registradas.';
     }
   });
 }
@@ -494,7 +516,7 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   if(fSet.has(row.factura)) {
     // Factura ya existe — verificar si cambió el conductor
     var existing = fMap[row.factura];
-    var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
+    var pRep = _getOrCreate('repartidores', row.repartidor, rMap);
     return pRep.then(function(newRepId){
       if(newRepId && existing && newRepId !== existing.repartidor_id) {
         showLoading('Actualizando conductor en ' + row.factura + '...');
@@ -507,7 +529,7 @@ function importarFilas(idx, ins, om, act, cMap, rMap, fSet, fMap) {
   }
   showLoading('Importando ' + row.factura + '...');
   var pCliente = cMap[row.cliente.toLowerCase()] ? Promise.resolve(cMap[row.cliente.toLowerCase()]) :
-    sbPost('clientes', {nombre: row.cliente}).then(function(r){ var id = r.data && r.data[0] ? r.data[0].id : null; if(id) cMap[row.cliente.toLowerCase()] = id; return id; });
+    sbPost('clientes', {nombre: row.cliente}).then(function(r){ var id=r.data&&r.data[0]?r.data[0].id:null; if(id) cMap[row.cliente.toLowerCase()]=id; return id; });
   var pRep = Promise.resolve(rMap[row.repartidor.toLowerCase()]||null);
   return Promise.all([pCliente, pRep]).then(function(ids){
     if(!ids[0] || !ids[1]) return importarFilas(idx+1, ins, om+1, act, cMap, rMap, fSet, fMap);
