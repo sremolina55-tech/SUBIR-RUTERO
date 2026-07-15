@@ -567,7 +567,8 @@ function cargarPedidosAplazados() {
   document.getElementById('ped-revision-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
   document.getElementById('ped-espera-list').innerHTML = '<p class="ped-empty">Cargando...</p>';
 
-  fetch(SUPA_URL+'/rest/v1/traz_reprog?select=*&punto=eq.'+encodeURIComponent(sesion.punto)+'&order=created_at.asc', {headers:H})
+  var puntoFiltro = sesion.rol === 'admin' ? '' : '&punto=eq.'+encodeURIComponent(sesion.punto);
+  fetch(SUPA_URL+'/rest/v1/traz_reprog?select=*'+puntoFiltro+'&order=created_at.asc', {headers:H})
     .then(function(r) {
       if (!r.ok) return r.text().then(function(t){ throw new Error('traz_reprog: '+t); });
       return r.json();
